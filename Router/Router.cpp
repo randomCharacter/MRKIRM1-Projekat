@@ -2,13 +2,64 @@
 
 using namespace std;
 
-Router::Router(int port) : port(port)
+Router::Router(int isMain, int port, int mainPort) : port(port)
 {
+	if (!isMain)
+	{
+		char buff[1024] = MSG_R_CONNECT;
+
+		for (int i = 0; i < 1024; i++)
+		{
+			nodes[i].type = OTHER_ROUTER;
+		}
+
+		WSADATA wsa_data;
+		SOCKADDR_IN addr;
+
+		WSAStartup(MAKEWORD(2, 0), &wsa_data);
+
+		mainRouter = socket(AF_INET, SOCK_STREAM, 0);
+
+		InetPton(AF_INET, "127.0.0.1", &addr.sin_addr.s_addr);
+
+		addr.sin_family = AF_INET;
+		addr.sin_port = htons(mainPort);
+
+		if (connect(mainRouter, reinterpret_cast<SOCKADDR *>(&addr), sizeof(addr)) < 0)
+		{
+			cout << "Failed to connect to router on port " << port << endl;
+			exit(1);
+		}
+		cout << "Connected to main server!" << endl;
+
+		send(mainRouter, buff, strlen(buff) + 1, 0);
+		recv(mainRouter, (char *)&localAddress, sizeof(int), 0);
+		nodes[localAddress].type == MYSELF;
+		nodes[localAddress].sock = 0;
+		nodes[localAddress].addr = localAddress;
+
+		cout << "My local address is " << localAddress << endl;
+
+		memcpy(buff, MSG_R_REQUEST_ADDRESSES, 5);
+
+		for (int i = 0; i < 10; i++)
+		{
+			int newAddr = 0;
+			send(mainRouter, buff, strlen(buff) + 1, 0);
+			recv(mainRouter, (char*)&newAddr, sizeof(int), 0);
+
+			nodes[newAddr].addr = 0;
+			nodes[newAddr].sock = 0;
+			nodes[newAddr].type = FREE;
+			cout << "Got new address for devices:" << newAddr << endl;
+		}
+		thread *t = new thread(on_client_connect, ref(*this), mainRouter);
+	}
 }
 
 void on_client_connect(Router &r, SOCKET client)
 {
-	int port = r.GetFreeAddr(DEVICE, client);
+	int port;
 	char buffer[1024];
 	for (;;)
 	{
@@ -23,6 +74,7 @@ void on_client_connect(Router &r, SOCKET client)
 
 		if (strcmp(op, MSG_CONNECT) == 0)
 		{
+			port = r.GetFreeAddr(DEVICE, client);
 			send(client, (const char *)&port, sizeof(int), 0);
 			cout << "Sent port number to client" << port << endl;
 			if (port == -1) {
@@ -48,6 +100,24 @@ void on_client_connect(Router &r, SOCKET client)
 				printf("Failed to send message to given address\n");
 			}
 		}
+		else if (strcmp(op, MSG_R_CONNECT))
+		{
+			port = r.GetFreeAddr(ROUTER, client);
+			send(client, (const char *)&port, sizeof(int), 0);
+			cout << "New router connected on address: " << port << endl;
+			if (port == -1) {
+				break;
+			}
+		}
+		else if (strcmp(op, MSG_R_REQUEST_ADDRESSES))
+		{
+			port = r.GetFreeAddr(OTHER_ROUTER, client);
+			send(client, (const char *)&port, sizeof(int), 0);
+			cout << "Sent new address:" << port << endl;
+			if (port == -1) {
+				break;
+			}
+		}
 
 		cout << "Client says: " << buffer << endl;
 		memset(buffer, 0, sizeof(buffer));
@@ -59,6 +129,13 @@ void on_client_connect(Router &r, SOCKET client)
 
 Router::~Router()
 {
+	if (!isMain)
+	{
+		closesocket(mainRouter);
+
+		WSACleanup();
+		cout << "Socket closed." << endl << endl;
+	}
 }
 
 void Router::start()
@@ -72,7 +149,7 @@ void Router::start()
 
 	router_addr.sin_addr.s_addr = INADDR_ANY;
 	router_addr.sin_family = AF_INET;
-	router_addr.sin_port = htons(5555);
+	router_addr.sin_port = htons(port);
 
 	::bind(server, reinterpret_cast<SOCKADDR *>(&router_addr), sizeof(router_addr));
 	listen(server, 0);

@@ -1,6 +1,5 @@
 #include "Device.h"
 #include "../Router/Messages.h"
-#include <stdio.h>
 
 using namespace std;
 
@@ -15,7 +14,6 @@ Device::~Device()
 
 void Device::start()
 {
-	int routerPort = 5555;
 	char buffer[1024] = { 0 };
 	strcpy_s(buffer, 5, MSG_CONNECT);
 
@@ -29,11 +27,11 @@ void Device::start()
 	InetPton(AF_INET, "127.0.0.1", &addr.sin_addr.s_addr);
 
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(routerPort);
+	addr.sin_port = htons(port);
 
 	if (connect(server, reinterpret_cast<SOCKADDR *>(&addr), sizeof(addr)) < 0)
 	{
-		cout << "Failed to connect to router on port " << routerPort << endl;
+		cout << "Failed to connect to router on port " << port << endl;
 		exit(1);
 	}
 	cout << "Connected to server!" << endl;

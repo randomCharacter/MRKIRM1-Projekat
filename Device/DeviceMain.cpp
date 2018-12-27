@@ -1,8 +1,13 @@
 #include "Device.h"
 
+
+
 int main(int argc, char *argv[])
 {
-	Device d(1234);
+	int port;
+	std::cout << "Enter router port:" << std::endl;
+	std::cin >> port;
+	Device d(port);
 	d.start();
 
 	return 0;

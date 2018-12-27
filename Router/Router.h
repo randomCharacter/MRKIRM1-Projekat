@@ -3,12 +3,13 @@
 #include <future>
 #include <iostream>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 
 #include "Messages.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
-enum NodeType { DEVICE, ROUTER, FREE, OTHER_ROUTER };
+enum NodeType { DEVICE, ROUTER, FREE, OTHER_ROUTER, MAIN, MYSELF };
 
 struct Node {
 	NodeType type = FREE;
@@ -20,10 +21,14 @@ class Router
 {
 private:
 	int port;
+	int isMain;
+	int mainPort;
 	Node nodes[1024];
+	SOCKET mainRouter;
+	int localAddress;
 	
 public:
-	Router(int port);
+	Router(int isMain, int port, int mainPort);
 	~Router();
 
 	void start();
