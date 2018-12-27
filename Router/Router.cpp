@@ -214,7 +214,6 @@ int Router::SendMsg(int dst_port, char *msg)
 	cout << "TYPE" << nodes[dst_port].type << endl;
 	if (nodes[dst_port].type == FREE || nodes[dst_port].type == OTHER_ROUTER)
 	{
-		//send(mainRouter, msg, 1024, 0);
 		for (int i = 0; i < 1024; i++)
 		{
 			if (nodes[i].type == ROUTER)
