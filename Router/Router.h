@@ -14,7 +14,7 @@ enum NodeType { DEVICE, ROUTER, FREE, OTHER_ROUTER, MAIN, MYSELF };
 struct Node {
 	NodeType type = FREE;
 	int addr;
-	SOCKET sock;
+	SOCKET sock = 0;
 };
 
 class Router

@@ -11,6 +11,7 @@ Router::Router(int isMain, int port, int mainPort) : port(port)
 		for (int i = 0; i < 1024; i++)
 		{
 			nodes[i].type = OTHER_ROUTER;
+			nodes[i].sock = 0;
 		}
 
 		WSADATA wsa_data;
@@ -34,7 +35,7 @@ Router::Router(int isMain, int port, int mainPort) : port(port)
 
 		send(mainRouter, buff, strlen(buff) + 1, 0);
 		recv(mainRouter, (char *)&localAddress, sizeof(int), 0);
-		nodes[localAddress].type == MYSELF;
+		nodes[localAddress].type = MYSELF;
 		nodes[localAddress].sock = 0;
 		nodes[localAddress].addr = localAddress;
 
@@ -53,7 +54,18 @@ Router::Router(int isMain, int port, int mainPort) : port(port)
 			nodes[newAddr].type = FREE;
 			cout << "Got new address for devices:" << newAddr << endl;
 		}
+
+		nodes[0].addr = 0;
+		nodes[0].sock = mainRouter;
+		nodes[0].type = ROUTER;
+
 		thread *t = new thread(on_client_connect, ref(*this), mainRouter);
+	}
+	else
+	{
+		nodes[0].addr = 0;
+		nodes[0].sock = 0;
+		nodes[0].type = MYSELF;
 	}
 }
 
@@ -91,6 +103,12 @@ void on_client_connect(Router &r, SOCKET client)
 			int src_port, dst_port;
 			memcpy(&src_port, buffer + 4, sizeof(int));
 			memcpy(&dst_port, buffer + 4 + sizeof(int), sizeof(int));
+
+			if (r.nodes[src_port].addr == 0)
+			{
+				r.nodes[src_port].sock = client;
+			}
+
 			if (r.SendMsg(dst_port, buffer))
 			{
 				printf("Message: \"%s\" sent to address %d\n", buffer + 4 + 2 * sizeof(int), dst_port);
@@ -188,14 +206,26 @@ int Router::GetFreeAddr(NodeType type, SOCKET s)
 			return i;
 		}
 	}
+	return -1;
 }
 
 int Router::SendMsg(int dst_port, char *msg)
 {
-	if (nodes[dst_port].type == FREE) {
-		return 0;
+	cout << "TYPE" << nodes[dst_port].type << endl;
+	if (nodes[dst_port].type == FREE || nodes[dst_port].type == OTHER_ROUTER)
+	{
+		//send(mainRouter, msg, 1024, 0);
+		for (int i = 0; i < 1024; i++)
+		{
+			if (nodes[i].type == ROUTER)
+			{
+				send(nodes[i].sock, msg, 1024, 0);
+			}
+		}
 	}
-	send(nodes[dst_port].sock, msg, 1024, 0);
-
+	else
+	{
+		send(nodes[dst_port].sock, msg, 1024, 0);
+	}
 	return 1;
 }
